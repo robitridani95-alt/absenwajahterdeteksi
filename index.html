@@ -1,0 +1,424 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Absensi Wajah — SMKN Rakit Kulim</title>
+<style>
+:root{--bg:#0a1a33;--ink:#eaf1ff;--mut:#7f93b8;--acc:#4f7cff;--ok:#2fd3a0;--warn:#ffb547;--bad:#ff6b6b}
+*{box-sizing:border-box;margin:0}
+html,body{height:100%;overflow:hidden;color:var(--ink);font:500 14px/1.4 system-ui,'Segoe UI',Roboto,sans-serif;background:radial-gradient(1200px 700px at 50% -10%,#14376b,var(--bg) 70%)}
+button{font:inherit;color:inherit;cursor:pointer}
+#top{position:fixed;inset:0 0 auto 0;height:56px;display:flex;align-items:center;gap:8px;padding:0 16px;z-index:5}
+#top .ttl{font-weight:700;letter-spacing:.2px}
+#top .ttl small{display:block;color:var(--mut);font-weight:500;font-size:11px}
+#clock{position:absolute;left:50%;transform:translateX(-50%);font:700 22px ui-monospace,Menlo,monospace;letter-spacing:1px}
+#top .sp{flex:1}
+.chip{display:inline-flex;align-items:center;gap:6px;height:34px;padding:0 14px;border:1px solid #2c4a82;border-radius:999px;background:#0f2447aa;font-size:13px}
+.chip.on{border-color:var(--acc);background:#1b3a7a}
+.chip b{color:var(--ok)}
+.ico{width:34px;padding:0;justify-content:center}
+#hud{position:fixed;left:16px;top:70px;font:11px/1.7 ui-monospace,Menlo,monospace;color:#cfe0ff;z-index:4;max-width:230px}
+#hud span{color:var(--mut);display:inline-block;width:62px}
+#hud #h-st.ok{color:var(--ok)}
+#stage{position:fixed;inset:56px 0 0 0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;padding-bottom:20px}
+#cam{position:relative;height:min(62vh,560px);aspect-ratio:1/1.04;max-width:92vw;border-radius:22px;overflow:hidden;background:#000;box-shadow:0 20px 60px #0008}
+#vid,#cv{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
+.mir{transform:scaleX(-1)}
+.br{position:absolute;width:22px;height:22px;border:2px solid #fff9;pointer-events:none}
+.br.a{left:12px;top:12px;border-right:0;border-bottom:0;border-radius:8px 0 0 0}
+.br.b{right:12px;top:12px;border-left:0;border-bottom:0;border-radius:0 8px 0 0}
+.br.c{left:12px;bottom:12px;border-right:0;border-top:0;border-radius:0 0 0 8px}
+.br.d{right:12px;bottom:12px;border-left:0;border-top:0;border-radius:0 0 8px 0}
+#oval{position:absolute;left:50%;top:46%;width:52%;height:66%;transform:translate(-50%,-50%);border:2px dashed #fff8;border-radius:50%;pointer-events:none;transition:border-color .2s}
+#cam.ok #oval{border-color:var(--ok)}
+#res{position:absolute;inset:0;display:none;flex-direction:column;align-items:center;justify-content:center;gap:6px;text-align:center;background:#5b6577cc;backdrop-filter:blur(14px) saturate(.7);-webkit-backdrop-filter:blur(14px) saturate(.7);padding:16px}
+#res.show{display:flex;animation:pop .25s ease-out}
+@keyframes pop{from{opacity:0;transform:scale(.97)}to{opacity:1;transform:none}}
+#ring{width:64px;height:64px;margin-bottom:4px}
+#ring circle{fill:none;stroke:var(--ok);stroke-width:2.5}
+#ring .sp{stroke-dasharray:40 100;transform-origin:center;animation:rot 1s linear infinite}
+#ring path{fill:none;stroke:var(--ok);stroke-width:3;stroke-linecap:round;stroke-linejoin:round;display:none}
+#res.done #ring .sp{animation:none;stroke-dasharray:none}
+#res.done #ring path{display:block}
+@keyframes rot{to{transform:rotate(360deg)}}
+#r-st{font-size:22px;font-weight:600;color:var(--ok)}
+#res.late #r-st,#res.late #ring circle,#res.late #ring path{color:var(--warn);stroke:var(--warn)}
+#res.late #r-st{stroke:none}
+#res.err #r-st{color:var(--bad)}
+#r-nm{font-size:24px;font-weight:700}
+#r-sub{color:#dbe6ff;font-size:13px}
+#r-msg{color:#c3d3f2;font-size:13px}
+#say{height:44px;font-size:30px;font-weight:700;color:#dce8ff;letter-spacing:.3px;min-width:200px;text-align:center}
+#say::after{content:"";display:inline-block;width:3px;height:.9em;background:var(--acc);margin-left:3px;vertical-align:-.1em;animation:bl 1s steps(2) infinite}
+@keyframes bl{50%{opacity:0}}
+#next{display:none;align-items:center;gap:8px;height:40px;padding:0 20px;border:0;border-radius:12px;background:var(--acc);font-weight:600;box-shadow:0 8px 24px #4f7cff55}
+#next.show{display:inline-flex}
+#side{position:fixed;right:16px;bottom:44px;width:260px;max-height:46vh;display:flex;flex-direction:column;background:#0b1e3d99;border:1px solid #1f3a6e;border-radius:16px;padding:12px;z-index:4;backdrop-filter:blur(8px)}
+#side h4{font:600 10px ui-monospace,Menlo,monospace;letter-spacing:1.5px;color:var(--mut);text-transform:uppercase;margin-bottom:8px}
+#tabs{display:flex;gap:6px;margin-bottom:8px}
+#tabs button{border:0;border-radius:999px;padding:3px 11px;font-size:11px;background:#16305f;color:#9db4de}
+#tabs button.on{background:var(--acc);color:#fff}
+#list{list-style:none;padding:0;overflow:auto;font-size:12px}
+#list li{display:flex;justify-content:space-between;gap:8px;padding:5px 0;border-bottom:1px solid #16305f}
+#list li span{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#list li i{font:11px ui-monospace,monospace;color:var(--mut);font-style:normal}
+#list li.t i{color:var(--warn)}
+#list .e{color:var(--mut);border:0}
+#foot{position:fixed;left:0;right:0;bottom:12px;display:flex;justify-content:center;gap:18px;font:11px ui-monospace,Menlo,monospace;color:var(--mut);z-index:3}
+dialog{margin:auto;border:1px solid #2c4a82;border-radius:16px;background:#0c2044;color:var(--ink);padding:20px;width:min(380px,92vw)}
+dialog::backdrop{background:#000a}
+dialog h3{margin-bottom:12px}
+dialog input{width:100%;height:38px;margin-bottom:8px;padding:0 12px;border:1px solid #2c4a82;border-radius:10px;background:#081733;color:var(--ink);font:inherit}
+dialog .row{display:flex;gap:8px;margin-top:6px}
+dialog .row button{flex:1;height:38px;border:0;border-radius:10px;background:#1b3a7a;font-weight:600}
+dialog .row .p{background:var(--acc)}
+#e-st{min-height:20px;margin:6px 0;font-size:13px;color:var(--warn)}
+@media(max-width:820px){#side{position:static;width:min(92vw,420px);max-height:22vh;margin-top:4px}#hud{display:none}#clock{display:none}#cam{height:min(46vh,420px)}#say{font-size:24px}}
+</style>
+</head>
+<body>
+<header id="top">
+  <div class="ttl">Absensi Wajah<small>SMKN Rakit Kulim</small></div>
+  <div id="clock">--.--.--</div>
+  <div class="sp"></div>
+  <button class="chip on" id="b-mesh">Wajah</button>
+  <button class="chip on" id="b-auto">Auto</button>
+  <button class="chip on" id="b-mir">Cermin</button>
+  <span class="chip"><b id="cnt">0</b> Hadir</span>
+  <button class="chip ico on" id="b-snd" title="Suara">♪</button>
+  <button class="chip ico" id="b-set" title="Daftar wajah">⚙</button>
+</header>
+
+<div id="hud">
+  <div><span>STATUS</span><b id="h-st">MEMUAT</b></div>
+  <div><span>MODE</span><b id="h-md">OTOMATIS</b></div>
+  <div><span>GALERI</span><b id="h-gl">0</b></div>
+  <div><span>KAMERA</span><b id="h-cm">-</b></div>
+</div>
+
+<main id="stage">
+  <div id="cam" class="">
+    <video id="vid" class="mir" autoplay muted playsinline></video>
+    <canvas id="cv" class="mir"></canvas>
+    <div id="oval"></div>
+    <i class="br a"></i><i class="br b"></i><i class="br c"></i><i class="br d"></i>
+    <div id="res">
+      <svg id="ring" viewBox="0 0 64 64"><circle cx="32" cy="32" r="29"/><circle class="sp" cx="32" cy="32" r="29"/><path d="M20 33l9 9 16-18"/></svg>
+      <div id="r-st">Hadir</div>
+      <div id="r-nm">-</div>
+      <div id="r-sub">-</div>
+      <div id="r-msg">-</div>
+    </div>
+  </div>
+  <div id="say"></div>
+  <button id="next">⌗ Pindai Berikutnya</button>
+</main>
+
+<aside id="side">
+  <h4>Absensi hari ini</h4>
+  <div id="tabs"><button class="on" data-t="Semua">Semua</button><button data-t="Hadir">Hadir</button><button data-t="Terlambat">Terlambat</button></div>
+  <ul id="list"></ul>
+</aside>
+<div id="foot"><span id="f-fps">- fps</span><span id="f-dist">skor -</span><span id="f-mode">Demo lokal</span></div>
+
+<dialog id="dlg">
+  <h3>Daftar Wajah Siswa</h3>
+  <input id="e-nis" placeholder="NIS" inputmode="numeric">
+  <input id="e-nama" placeholder="Nama lengkap">
+  <input id="e-kelas" placeholder="Kelas (mis. X TKJ 1)">
+  <div id="e-st"></div>
+  <div class="row"><button id="e-cap" class="p">Ambil 3 sampel</button><button id="e-x">Tutup</button></div>
+</dialog>
+
+<script src="https://cdn.jsdelivr.net/npm/@vladmandic/face-api@1.7.12/dist/face-api.js"></script>
+<script>
+/* ====== KONFIGURASI ====== */
+const GAS_URL = 'https://script.google.com/macros/s/AKfycbxdc7UurBiEKI_F70qddaqb5F-ABSC_B614NlXjrgdZNKMn4YHCzoW2aC9ejrYYbcaU/exec';          // tempel URL Web App (…/exec). Kosong = mode demo lokal (localStorage)
+const THRESHOLD = 0.5;       // makin kecil makin ketat
+const MIN_FACE = 0.17;       // lebar wajah minimal (rasio lebar video) sebelum "Maju sedikit"
+const LATE = '07:15';        // samakan dengan BATAS_TERLAMBAT di Code.gs
+const AUTO_MS = 3500;        // jeda kartu hasil pada mode Auto
+const MODEL = 'https://cdn.jsdelivr.net/npm/@vladmandic/face-api@1.7.12/model/';
+
+const $ = s => document.querySelector(s);
+const vid = $('#vid'), cv = $('#cv'), cx = cv.getContext('2d'), cam = $('#cam');
+const S = {gal: [], hadir: new Map(), list: [], tab: 'Semua', auto: true, mesh: true, snd: true,
+           st: 'load', streak: {n: null, c: 0}, unk: 0, pin: '', t: null};
+const OPT = new faceapi.TinyFaceDetectorOptions({inputSize: 224, scoreThreshold: .5});
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+
+/* ====== TEKS KETIK ====== */
+let tw = {txt: '', i: 0, id: null};
+function say(t) {
+  if (tw.txt === t) return;
+  tw.txt = t; tw.i = 0; clearInterval(tw.id);
+  $('#say').textContent = '';
+  tw.id = setInterval(() => {
+    $('#say').textContent = t.slice(0, ++tw.i);
+    if (tw.i >= t.length) clearInterval(tw.id);
+  }, 38);
+}
+
+/* ====== JAM & SUARA ====== */
+setInterval(() => $('#clock').textContent = new Date().toLocaleTimeString('id-ID').replace(/:/g, '.'), 1000);
+let ac;
+function beep(f1, f2) {
+  if (!S.snd) return;
+  try {
+    ac = ac || new (window.AudioContext || window.webkitAudioContext)();
+    [f1, f2].forEach((f, i) => {
+      const o = ac.createOscillator(), g = ac.createGain();
+      o.frequency.value = f; o.connect(g); g.connect(ac.destination);
+      const t = ac.currentTime + i * .12;
+      g.gain.setValueAtTime(.15, t); g.gain.exponentialRampToValueAtTime(.001, t + .15);
+      o.start(t); o.stop(t + .16);
+    });
+  } catch (_) {}
+}
+
+/* ====== API (GAS / demo lokal) ====== */
+const hhmm = () => new Date().toLocaleTimeString('en-GB', {hour: '2-digit', minute: '2-digit'});
+const ymd = () => new Date().toLocaleDateString('en-CA');
+function demoDB() { try { return JSON.parse(localStorage.getItem('af_demo')) || {siswa: [], abs: []}; } catch (_) { return {siswa: [], abs: []}; } }
+function demoSave(d) { try { localStorage.setItem('af_demo', JSON.stringify(d)); } catch (_) {} }
+async function api(a, p) {
+  if (GAS_URL) {
+    const r = a === 'init' ? await fetch(GAS_URL) : await fetch(GAS_URL, {method: 'POST', body: JSON.stringify({action: a, ...p})});
+    return r.json();
+  }
+  const d = demoDB();
+  if (a === 'init') return {ok: true, gallery: d.siswa, today: d.abs.filter(x => x.tgl === ymd())};
+  if (a === 'daftar') {
+    d.siswa = d.siswa.filter(x => x.nis !== p.nis);
+    d.siswa.push({nis: p.nis, nama: p.nama, kelas: p.kelas, d: p.d}); demoSave(d); return {ok: true};
+  }
+  if (a === 'absen') {
+    const s = d.siswa.find(x => x.nis === p.nis); if (!s) return {ok: false, error: 'NIS tidak terdaftar'};
+    const dup = d.abs.find(x => x.tgl === ymd() && x.nis === p.nis);
+    if (dup) return {ok: true, dup: true, ...dup};
+    const r = {tgl: ymd(), nis: s.nis, nama: s.nama, kelas: s.kelas, jam: hhmm(), status: hhmm() > '07:15' ? 'Terlambat' : 'Hadir'};
+    d.abs.push(r); demoSave(d); return {ok: true, dup: false, ...r};
+  }
+}
+
+/* ====== DAFTAR & SIDEBAR ====== */
+const fj = j => String(j).replace(':', '.');
+function addRow(r) {
+  if (S.hadir.has(r.nis)) return;
+  S.hadir.set(r.nis, r); S.list.push(r);
+  $('#cnt').textContent = S.hadir.size;
+}
+function removeRow(nis) {
+  S.hadir.delete(nis); S.list = S.list.filter(r => r.nis !== nis);
+  $('#cnt').textContent = S.hadir.size;
+}
+function renderList() {
+  const rows = S.list.filter(r => S.tab === 'Semua' || r.status === S.tab).slice().reverse().slice(0, 40);
+  $('#list').innerHTML = rows.length ? rows.map(r =>
+    `<li class="${r.status === 'Terlambat' ? 't' : ''}"><span>${esc(r.nama)}</span><i>${fj(r.jam)}</i></li>`).join('')
+    : '<li class="e">Belum ada data</li>';
+}
+const esc = s => String(s).replace(/[&<>"]/g, c => ({'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;'}[c]));
+document.querySelectorAll('#tabs button').forEach(b => b.onclick = () => {
+  S.tab = b.dataset.t;
+  document.querySelectorAll('#tabs button').forEach(x => x.classList.toggle('on', x === b));
+  renderList();
+});
+
+/* ====== KONTROL ====== */
+function tog(id, key, fn) {
+  $(id).onclick = () => { S[key] = !S[key]; $(id).classList.toggle('on', S[key]); fn && fn(); };
+}
+tog('#b-mesh', 'mesh', () => cx.clearRect(0, 0, cv.width, cv.height));
+tog('#b-auto', 'auto', () => $('#h-md').textContent = S.auto ? 'OTOMATIS' : 'MANUAL');
+tog('#b-snd', 'snd');
+$('#b-mir').onclick = () => {
+  $('#b-mir').classList.toggle('on'); vid.classList.toggle('mir'); cv.classList.toggle('mir');
+};
+$('#next').onclick = next;
+
+function setSt(t, ok) { $('#h-st').textContent = t; $('#h-st').classList.toggle('ok', !!ok); }
+
+/* ====== KAMERA ====== */
+async function startCam() {
+  const stream = await navigator.mediaDevices.getUserMedia({video: {facingMode: 'user', width: {ideal: 640}, height: {ideal: 480}, frameRate: {ideal: 30}}, audio: false});
+  vid.srcObject = stream; await vid.play();
+  const lbl = stream.getVideoTracks()[0].label || 'camera 1, facing front';
+  $('#h-cm').textContent = lbl.length > 26 ? lbl.slice(0, 25) + '…' : lbl;
+}
+
+/* ====== MESH WAJAH (render 60 fps, terpisah dari deteksi) ====== */
+const clearCv = () => cx.clearRect(0, 0, cv.width, cv.height);
+const ACTIVE = ['idle', 'seek', 'far'];
+function nearest(P) {
+  return P.map((a, i) => P.map((b, j) => [Math.hypot(a[0] - b[0], a[1] - b[1]), j])
+    .filter(x => x[1] !== i).sort((x, y) => x[0] - y[0]).slice(0, 3).map(x => x[1]));
+}
+function render() {
+  requestAnimationFrame(render);
+  const W = cam.clientWidth, H = cam.clientHeight;
+  if (cv.width !== W || cv.height !== H) { cv.width = W; cv.height = H; }
+  cx.clearRect(0, 0, W, H);
+  const T = S.tgt;
+  if (!S.mesh || !T || !vid.videoWidth || !ACTIVE.includes(S.st)) { S.cur = null; return; }
+  if (!S.cur) { S.cur = T.map(p => p.slice()); S.nb = nearest(T); }
+  else S.cur.forEach((c, i) => { c[0] += (T[i][0] - c[0]) * .4; c[1] += (T[i][1] - c[1]) * .4; });
+  const vw = vid.videoWidth, vh = vid.videoHeight, sc = Math.max(W / vw, H / vh);
+  const ox = (W - vw * sc) / 2, oy = (H - vh * sc) / 2;
+  const P = S.cur.map(p => [p[0] * sc + ox, p[1] * sc + oy]);
+  const col = S.streak.c ? '#2fd3a0aa' : '#78beffaa';
+  cx.strokeStyle = col; cx.lineWidth = .8; cx.beginPath();
+  P.forEach((a, i) => S.nb[i].forEach(j => { cx.moveTo(a[0], a[1]); cx.lineTo(P[j][0], P[j][1]); }));
+  cx.stroke(); cx.fillStyle = col;
+  P.forEach(p => { cx.beginPath(); cx.arc(p[0], p[1], 1.4, 0, 6.3); cx.fill(); });
+}
+
+/* ====== PENGENALAN ====== */
+function match(d) {
+  let b2 = 81, bg = null;
+  for (const g of S.gal) for (const x of g.ds) {
+    let s = 0;
+    for (let i = 0; i < 128 && s < b2; i++) { const t = d[i] - x[i]; s += t * t; }
+    if (s < b2) { b2 = s; bg = g; }
+  }
+  return {d: Math.sqrt(b2), g: bg};
+}
+let fpsT = performance.now(), fr = 0, lastDesc = 0;
+async function loop() {
+  for (;;) {
+    try {
+      if (ACTIVE.includes(S.st)) await step(); else { S.tgt = null; await sleep(60); }
+    } catch (e) { console.error(e); await sleep(200); }
+    if (++fr >= 10) { const n = performance.now(); $('#f-fps').textContent = (fr * 1000 / (n - fpsT)).toFixed(0) + ' fps'; fr = 0; fpsT = n; }
+    await sleep(0);
+  }
+}
+async function step() {
+  // 1) deteksi + landmark tiap frame (ringan) -> mesh mulus
+  const all = await faceapi.detectAllFaces(vid, OPT).withFaceLandmarks(true);
+  if (!ACTIVE.includes(S.st)) return;
+  if (!all.length) {
+    S.tgt = null; cam.classList.remove('ok');
+    S.st = 'idle'; S.streak = {n: null, c: 0}; S.unk = 0; setSt('SIAGA'); say('Menunggu wajah...'); return;
+  }
+  const f = all.reduce((a, b) => b.detection.box.area > a.detection.box.area ? b : a);
+  S.tgt = f.landmarks.positions.map(p => [p.x, p.y]);
+  if (f.detection.box.width / vid.videoWidth < MIN_FACE) {
+    S.st = 'far'; S.streak = {n: null, c: 0}; setSt('SIAGA'); say('Maju sedikit'); return;
+  }
+  S.st = 'seek'; setSt('MEMINDAI', true);
+  if (!S.gal.length) { say('Galeri kosong — daftar wajah'); return; }
+  // 2) descriptor (berat) hanya untuk wajah terbesar & di-throttle
+  const n = performance.now();
+  if (n - lastDesc < 100) return;
+  lastDesc = n;
+  const [crop] = await faceapi.extractFaces(vid, [f.alignedRect]);
+  const desc = await faceapi.computeFaceDescriptor(crop);
+  if (!ACTIVE.includes(S.st)) return;
+  const m = match(desc);
+  $('#f-dist').textContent = 'skor ' + m.d.toFixed(2);
+  if (m.g && m.d < THRESHOLD) {
+    S.unk = 0; cam.classList.add('ok');
+    S.streak = S.streak.n === m.g.nis ? {n: m.g.nis, c: S.streak.c + 1} : {n: m.g.nis, c: 1};
+    say('Mengenali wajah...');
+    if (S.streak.c >= 2 || m.d < THRESHOLD - .12) success(m.g);   // sangat yakin => langsung
+  } else {
+    cam.classList.remove('ok'); S.streak = {n: null, c: 0};
+    say(++S.unk > 6 ? 'Wajah belum terdaftar' : 'Mengenali wajah...');
+  }
+}
+
+/* ====== HASIL ====== */
+function showRes(cls, st, nm, sub, msg, done) {
+  const r = $('#res'); r.className = 'show ' + cls + (done ? ' done' : '');
+  $('#r-st').textContent = st; $('#r-nm').textContent = nm; $('#r-sub').textContent = sub; $('#r-msg').textContent = msg;
+}
+async function success(g) {
+  S.st = 'result'; S.tgt = null; clearCv(); clearTimeout(S.t);
+  const tok = S.tok = {};
+  const prev = S.hadir.get(g.nis);
+  const jam = prev ? prev.jam : hhmm(), st = prev ? prev.status : (hhmm() > LATE ? 'Terlambat' : 'Hadir');
+  const view = (stt, j, dup) => showRes(stt === 'Terlambat' ? 'late' : '', dup ? 'Sudah Absen' : stt, g.nama,
+    `NIS ${g.nis} · ${stt} ${fj(j)}`, dup ? `${g.nama} sudah tercatat hari ini` : `${g.nama} ditandai ${stt.toLowerCase()}`, true);
+  // tampilkan hasil SEKETIKA, server dikonfirmasi di belakang layar
+  view(st, jam, !!prev);
+  setSt('SELESAI', true); say(prev ? 'Sudah absen' : 'Berhasil'); beep(prev ? 520 : 660, prev ? 520 : 880);
+  $('#next').classList.add('show');
+  if (S.auto) S.t = setTimeout(next, AUTO_MS);
+  if (prev) return;
+  addRow({nis: g.nis, nama: g.nama, kelas: g.kelas, jam, status: st}); renderList();
+  let r;
+  try { r = await api('absen', {nis: g.nis}); } catch (e) { r = {ok: false, error: 'Gagal terhubung ke server'}; }
+  removeRow(g.nis);
+  if (r && r.ok) addRow({nis: g.nis, nama: r.nama, kelas: r.kelas, jam: r.jam, status: r.status});
+  renderList();
+  if (S.tok !== tok || S.st !== 'result') return;
+  if (!r || !r.ok) {
+    showRes('err', 'Gagal', g.nama, 'NIS ' + g.nis, (r && r.error) || 'Terjadi kesalahan', false);
+    beep(220, 180); say('Gagal');
+    clearTimeout(S.t); if (S.auto) S.t = setTimeout(next, AUTO_MS + 1500);
+  } else if (r.dup || r.status !== st) view(r.status, r.jam, r.dup);
+}
+function next() {
+  clearTimeout(S.t); $('#res').className = ''; $('#next').classList.remove('show');
+  cam.classList.remove('ok'); S.streak = {n: null, c: 0}; S.unk = 0; S.st = 'idle'; setSt('SIAGA'); say('Menunggu wajah...');
+}
+
+/* ====== PENDAFTARAN WAJAH ====== */
+const dlg = $('#dlg');
+$('#b-set').onclick = () => { S.stPrev = S.st; S.st = 'enroll'; setSt('DAFTAR'); $('#e-st').textContent = ''; dlg.showModal(); };
+const closeDlg = () => { dlg.close(); if (S.st === 'enroll') next(); };
+$('#e-x').onclick = closeDlg; dlg.addEventListener('cancel', () => setTimeout(closeDlg));
+$('#e-cap').onclick = async () => {
+  const nis = $('#e-nis').value.trim(), nama = $('#e-nama').value.trim(), kelas = $('#e-kelas').value.trim(), st = $('#e-st');
+  if (!nis || !nama) { st.textContent = 'NIS dan nama wajib diisi'; return; }
+  if (GAS_URL && !S.pin) { S.pin = prompt('PIN admin:') || ''; if (!S.pin) return; }
+  $('#e-cap').disabled = true; const ds = [];
+  for (let i = 0; i < 3; i++) {
+    st.textContent = `Lihat kamera… sampel ${i + 1}/3`; await sleep(900);
+    let f = null;
+    for (let k = 0; k < 6 && !f; k++) { f = await faceapi.detectSingleFace(vid, OPT).withFaceLandmarks(true).withFaceDescriptor(); if (!f) await sleep(300); }
+    if (!f) { st.textContent = 'Wajah tidak terdeteksi, coba lagi'; $('#e-cap').disabled = false; return; }
+    ds.push(Array.from(f.descriptor).map(v => +v.toFixed(3)));
+  }
+  st.textContent = 'Menyimpan…';
+  try {
+    const r = await api('daftar', {pin: S.pin, nis, nama, kelas, d: ds});
+    if (!r.ok) { if (/PIN/.test(r.error)) S.pin = ''; throw new Error(r.error); }
+    S.gal = S.gal.filter(g => g.nis !== nis);
+    S.gal.push({nis, nama, kelas, d: ds, ds: ds.map(a => new Float32Array(a))});
+    $('#h-gl').textContent = S.gal.length;
+    st.textContent = '✓ Tersimpan: ' + nama; $('#e-nis').value = $('#e-nama').value = '';
+  } catch (e) { st.textContent = 'Gagal: ' + e.message; }
+  $('#e-cap').disabled = false;
+};
+
+/* ====== MULAI ====== */
+(async function boot() {
+  $('#f-mode').textContent = GAS_URL ? 'Google Sheets' : 'Demo lokal';
+  say('Memuat model...');
+  try {
+    try { faceapi.tf.enableProdMode(); await faceapi.tf.setBackend('webgl'); await faceapi.tf.ready(); } catch (_) {}
+    await Promise.all([faceapi.nets.tinyFaceDetector.loadFromUri(MODEL), faceapi.nets.faceLandmark68TinyNet.loadFromUri(MODEL), faceapi.nets.faceRecognitionNet.loadFromUri(MODEL)]);
+    say('Memuat galeri...');
+    const d = await api('init');
+    if (!d.ok) throw new Error(d.error || 'init gagal');
+    S.gal = d.gallery.map(g => ({...g, ds: g.d.map(a => new Float32Array(a))}));
+    d.today.forEach(addRow); renderList();
+    $('#h-gl').textContent = S.gal.length;
+    await startCam();
+    say('Memanaskan model...');
+    try {  // warm-up: kompilasi shader WebGL supaya scan pertama tidak patah-patah
+      await faceapi.detectAllFaces(vid, OPT).withFaceLandmarks(true);
+      const w = document.createElement('canvas'); w.width = w.height = 150; await faceapi.computeFaceDescriptor(w);
+    } catch (_) {}
+    S.st = 'idle'; setSt('SIAGA'); say('Menunggu wajah...'); render(); loop();
+  } catch (e) {
+    console.error(e); setSt('ERROR'); say('Gagal: ' + (e.message || e));
+  }
+})();
+renderList();
+</script>
+</body>
+</html>
